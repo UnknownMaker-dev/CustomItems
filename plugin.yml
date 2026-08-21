@@ -1,0 +1,19 @@
+name: CustomItems
+main: Unknown\CustomItems\CustomItems
+version: 1.0.0
+api: 5.1.3
+description: Criação de itens customizados por configuração, usando o Customies.
+authors:
+  - zer0
+commands:
+  customitems:
+    description: Gerencia os itens customizados registrados
+    usage: "/customitems <list|info|give|pack>"
+    permission: customitems.command
+    aliases:
+      - citems
+      - ci
+permissions:
+  customitems.command:
+    description: Permite usar o comando /customitems
+    default: op
