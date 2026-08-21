@@ -1,0 +1,30 @@
+# ============================================================================
+#  CustomItems
+#  Os itens em si ficam no items.yml. Este arquivo cuida só do resource pack.
+# ============================================================================
+
+resource-pack:
+  # Gera o resource pack com os ícones dos itens a partir dos PNGs em
+  # <pasta de dados>/textures/.
+  # Desligue se você prefere manter o seu próprio pack montado à mão.
+  generate: true
+
+  # Coloca o pack gerado no topo da lista de resource packs do servidor
+  # automaticamente. Com isso você não precisa mexer em resource_packs.yml.
+  auto-register: true
+
+  # Obriga os jogadores a aceitarem os resource packs para entrar.
+  # Sem isso, quem recusar vai ver os itens customizados sem ícone.
+  force-resources: false
+
+  # Nome e descrição que aparecem na tela de pacotes do jogo.
+  name: "CustomItems"
+  description: "Ícones dos itens customizados"
+
+  # Preenchidos automaticamente na primeira execução. Não troque depois que os
+  # jogadores já baixaram o pack, senão todo mundo baixa tudo de novo.
+  uuid: ""
+  module-uuid: ""
+
+  # Versão mínima do jogo exigida pelo pack.
+  min-engine-version: [1, 21, 0]

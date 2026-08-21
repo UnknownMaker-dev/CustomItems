@@ -1,0 +1,148 @@
+# ============================================================================
+#  Itens customizados
+#
+#  Cada entrada de "items" vira um item no jogo. A chave é o identificador,
+#  sempre no formato "namespace:nome" (só letras minúsculas, números e _).
+#  O namespace "minecraft" é reservado pelo jogo.
+#
+#  Ícones: coloque os PNGs em <pasta de dados>/textures/ e use o nome do
+#  arquivo sem a extensão no campo "texture". O resource pack é montado
+#  sozinho quando o servidor sobe.
+#
+#  Só "texture" é obrigatório; o resto tem padrão. O campo "type" decide o
+#  comportamento: item (padrão), food, tool ou armor.
+# ============================================================================
+
+items:
+
+  # --- Item comum: material de craft, moeda, troféu -------------------------
+  customitems:rubi:
+    name: "Rubi"
+    texture: rubi
+    creative:
+      category: items
+      group: itemGroup.name.miscFood
+
+  # --- Comida ---------------------------------------------------------------
+  customitems:ensopado_magico:
+    name: "Ensopado Mágico"
+    texture: ensopado
+    type: food
+    max_stack_size: 1
+    food:
+      nutrition: 8            # meias-coxinhas restauradas
+      saturation: 0.9
+      always_edible: true     # dá para comer mesmo de barriga cheia
+      residue: minecraft:bowl # o que sobra na mão depois de comer
+      eat_ticks: 31
+    creative:
+      category: items
+
+  # --- Ferramenta -----------------------------------------------------------
+  customitems:picareta_de_rubi:
+    name: "Picareta de Rubi"
+    texture: picareta_rubi
+    type: tool
+    tool: pickaxe             # none|sword|shovel|pickaxe|axe|shears|hoe
+    tool_tier: diamond        # define coleta, durabilidade e dano padrão
+    max_durability: 2000
+    attack_damage: 7
+    efficiency: 9.0           # velocidade de mineração no servidor
+    glint: true
+    rarity: epic              # common|uncommon|rare|epic
+    enchantable:
+      slot: pickaxe
+      value: 12
+    enchantment_tags:         # permite encantar na mesa (lado servidor)
+      - pickaxe
+      - block_tools
+    creative:
+      category: equipment
+      group: itemGroup.name.pickaxe
+
+  # --- Armadura -------------------------------------------------------------
+  customitems:elmo_de_rubi:
+    name: "Elmo de Rubi"
+    texture: elmo_rubi
+    type: armor
+    armor:
+      slot: helmet            # helmet|chestplate|leggings|boots
+      defense: 4
+      toughness: 2
+    max_durability: 600
+    fire_proof: true
+    enchantable:
+      slot: helmet
+      value: 10
+    enchantment_tags:
+      - armor
+      - helmet
+    creative:
+      category: equipment
+      group: itemGroup.name.helmet
+
+# ============================================================================
+#  Referência dos campos
+#
+#  name                Nome exibido no inventário. Padrão: derivado do id.
+#  texture             Nome do PNG sem extensão. Obrigatório.
+#  type                item (padrão), food, tool, armor.
+#
+#  max_stack_size      1 a 64. Padrão: 1 para tool/armor, 64 para o resto.
+#  max_durability      Usos até quebrar (tool/armor). Padrão: o da tool_tier.
+#  attack_damage       Dano de ataque. Padrão: o da tool_tier, se houver.
+#  efficiency          Velocidade base de mineração. Padrão: 1.0.
+#  tool                none, sword, shovel, pickaxe, axe, shears, hoe.
+#  tool_tier           wood, gold, stone, iron, diamond, netherite.
+#  fuel_time           Ticks que o item queima na fornalha. Padrão: 0.
+#  fire_proof          Não queima no lava/fogo. Padrão: false.
+#
+#  food.nutrition      Fome restaurada.
+#  food.saturation     Saturação restaurada. Padrão: 0.6.
+#  food.always_edible  Come de barriga cheia. Padrão: false.
+#  food.residue        Item que sobra ao comer. Padrão: nenhum.
+#  food.eat_ticks      Tempo de mastigada. Padrão: 31.
+#
+#  armor.slot          helmet, chestplate, leggings, boots.
+#  armor.defense       Pontos de proteção. Padrão: 2.
+#  armor.toughness     Tenacidade. Padrão: 0.
+#
+#  digger              Velocidade prevista no cliente. Uma ferramenta ganha as
+#                      tags padrão do seu "tool"; use "digger: false" para
+#                      desligar ou um mapa para customizar:
+#                        digger:
+#                          use_efficiency: true
+#                          destroy_speeds:
+#                            - speed: 6
+#                              tags: [stone, metal]
+#                      Tags comuns: stone, metal, diamond_pick_diggable, wood,
+#                      dirt, sand, gravel, grass, snow, leaves, plant, web,
+#                      wool, rail, slab_block, stair_block, mob_spawner.
+#
+#  cooldown.category   shield, ender_pearl, goat_horn, wind_charge,
+#                      chorus_fruit.
+#  cooldown.duration   Segundos de recarga.
+#
+#  enchantable.slot    all, sword, pickaxe, axe, shovel, hoe, bow, crossbow,
+#                      shears, shield, elytra, fishing_rod, helmet,
+#                      chestplate, leggings, boots.
+#  enchantable.value   Encantabilidade (quanto maior, melhores encantamentos).
+#  enchantment_tags    Tags do PocketMine que liberam o item na mesa de
+#                      encantamento: sword, pickaxe, axe, shovel, hoe, armor,
+#                      helmet, chestplate, leggings, boots, bow, crossbow,
+#                      shears, block_tools, all.
+#
+#  glint               Brilho de item encantado. Padrão: false.
+#  rarity              common, uncommon, rare, epic.
+#  hand_equipped       Segura como ferramenta. Padrão: true para tool.
+#  allow_off_hand      Pode ir na mão secundária. Padrão: false.
+#  can_destroy_in_creative  Padrão: false para sword, true para o resto.
+#  should_despawn      Some no chão depois de 5 min. Padrão: true.
+#  hover_text_color    Cor do nome, ex.: "red", "aqua", "gold".
+#  use_animation       none, eat, drink, block, bow, camera, spear, crossbow,
+#                      spyglass, brush. Padrão: eat para food.
+#  use_duration        Ticks segurando o botão de usar.
+#
+#  creative.category   all, commands, construction, equipment, items, nature.
+#  creative.group      Grupo dentro da categoria, ex.: itemGroup.name.sword.
+# ============================================================================
