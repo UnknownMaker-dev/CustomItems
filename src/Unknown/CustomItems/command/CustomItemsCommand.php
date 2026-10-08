@@ -12,11 +12,12 @@ use pocketmine\utils\TextFormat;
 use Throwable;
 use Unknown\CustomItems\CustomItems;
 use Unknown\CustomItems\item\ItemDefinition;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\CustomiesItemFactory;
+use customiesdevs\customies\item\CustomiesItemFactory;
 use function array_shift;
 use function array_slice;
 use function count;
 use function implode;
+use function in_array;
 use function is_numeric;
 use function max;
 use function min;
@@ -80,7 +81,7 @@ final class CustomItemsCommand implements CommandExecutor {
 		$this->sendField($sender, "Textura", $definition->getTexture());
 		$this->sendField($sender, "Pilha máxima", (string) $definition->getMaxStackSize());
 
-		if($definition->getType() === ItemDefinition::TYPE_TOOL || $definition->getType() === ItemDefinition::TYPE_ARMOR) {
+		if(in_array($definition->getType(), [ItemDefinition::TYPE_TOOL, ItemDefinition::TYPE_ARMOR, ItemDefinition::TYPE_BOW], true)) {
 			$this->sendField($sender, "Durabilidade", (string) $definition->getMaxDurability());
 		}
 		if($definition->getAttackDamage() > 0) {
@@ -96,6 +97,31 @@ final class CustomItemsCommand implements CommandExecutor {
 			$this->sendField($sender, "Nutrição / saturação", $food["nutrition"] . " / " . $food["saturation"]);
 			$this->sendField($sender, "Come sem fome", $food["always_edible"] ? "sim" : "não");
 			$this->sendField($sender, "Resto ao comer", $food["residue"] === "" ? "nenhum" : $food["residue"]);
+			if($food["clear_effects"]) {
+				$this->sendField($sender, "Limpa efeitos", "sim");
+			}
+			$this->sendEffects($sender, $food["effects"]);
+		}
+
+		$projectile = $definition->getProjectile();
+		if($projectile !== null) {
+			$this->sendField($sender, "Força / gravidade", $projectile["force"] . " / " . $projectile["gravity"]);
+			$this->sendField($sender, "Dano do projétil", (string) $projectile["damage"]);
+			$this->sendHitExtras($sender, $projectile["fire"], $projectile["knockback"]);
+			$this->sendEffects($sender, $projectile["effects"]);
+		}
+
+		$bow = $definition->getBow();
+		if($bow !== null) {
+			$this->sendField($sender, "Munição", $bow["ammo"] . ($bow["consume_ammo"] ? "" : " (não gasta)"));
+			$this->sendField($sender, "Dano / força / carga", $bow["damage"] . " / " . $bow["force"] . " / " . $bow["draw_time"] . "s");
+			$this->sendHitExtras($sender, $bow["fire"], $bow["knockback"]);
+			$this->sendEffects($sender, $bow["effects"]);
+		}
+
+		$cooldown = $definition->getCooldown();
+		if($cooldown !== null) {
+			$this->sendField($sender, "Recarga", $cooldown["duration"] . "s (" . $cooldown["tag"] . ")");
 		}
 
 		$armor = $definition->getArmor();
@@ -215,6 +241,31 @@ final class CustomItemsCommand implements CommandExecutor {
 			return null;
 		}
 		return $definition;
+	}
+
+	/** @param list<array{effect: string, duration: int, amplifier: int, chance: float, particles: bool}> $effects */
+	private function sendEffects(CommandSender $sender, array $effects): void {
+		if($effects === []) {
+			return;
+		}
+		$parts = [];
+		foreach($effects as $effect){
+			$part = $effect["effect"] . " " . ($effect["amplifier"] + 1) . " (" . ($effect["duration"] / 20) . "s)";
+			if($effect["chance"] < 1.0) {
+				$part .= " " . ($effect["chance"] * 100) . "%";
+			}
+			$parts[] = $part;
+		}
+		$this->sendField($sender, "Efeitos", implode(", ", $parts));
+	}
+
+	private function sendHitExtras(CommandSender $sender, int $fire, float $knockback): void {
+		if($fire > 0) {
+			$this->sendField($sender, "Fogo no alvo", $fire . "s");
+		}
+		if($knockback > 0) {
+			$this->sendField($sender, "Empurrão extra", (string) $knockback);
+		}
 	}
 
 	private function sendField(CommandSender $sender, string $label, string $value): void {

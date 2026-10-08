@@ -8,7 +8,7 @@ use Logger;
 use LogicException;
 use pocketmine\item\Item;
 use pocketmine\item\StringToItemParser;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\CustomiesItemFactory;
+use customiesdevs\customies\item\CustomiesItemFactory;
 use function array_key_exists;
 use function count;
 
@@ -48,6 +48,8 @@ final class ItemRegistry {
 			ItemDefinition::TYPE_FOOD => new CustomFood($definition),
 			ItemDefinition::TYPE_TOOL => new CustomTool($definition),
 			ItemDefinition::TYPE_ARMOR => new CustomArmor($definition),
+			ItemDefinition::TYPE_THROWABLE => new CustomThrowable($definition),
+			ItemDefinition::TYPE_BOW => new CustomBow($definition),
 			default => new CustomItem($definition),
 		};
 
@@ -58,6 +60,7 @@ final class ItemRegistry {
 	/** Fecha o registro. Chamado quando o servidor termina de subir. */
 	public function lock(): void {
 		$this->locked = true;
+		$this->warnAboutUnknownAmmo();
 	}
 
 	public function isLocked(): bool {
@@ -79,6 +82,19 @@ final class ItemRegistry {
 
 	public function count(): int {
 		return count($this->definitions);
+	}
+
+	/**
+	 * A munição de um arco pode ser um item customizado, então só dá para conferir depois que todos os
+	 * plugins registraram os seus — por isso roda no lock e não no register.
+	 */
+	private function warnAboutUnknownAmmo(): void {
+		foreach($this->definitions as $definition){
+			$bow = $definition->getBow();
+			if($bow !== null && StringToItemParser::getInstance()->parse($bow["ammo"]) === null) {
+				$this->logger->warning("O arco '{$definition->getIdentifier()}' usa a munição '{$bow["ammo"]}', que não corresponde a nenhum item conhecido; ele não vai disparar.");
+			}
+		}
 	}
 
 	/**

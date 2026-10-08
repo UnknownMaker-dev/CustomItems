@@ -16,19 +16,15 @@ use Unknown\CustomItems\command\CustomItemsCommand;
 use Unknown\CustomItems\item\ItemDefinition;
 use Unknown\CustomItems\item\ItemDefinitionException;
 use Unknown\CustomItems\item\ItemRegistry;
-use Unknown\CustomItems\libs\customiesdevs\customies\CustomiesListener;
 use Unknown\CustomItems\resourcepack\ResourcePackGenerator;
 use function array_unshift;
 use function array_values;
-use function class_exists;
 use function count;
 use function is_array;
 use function is_int;
 use function is_string;
 use function method_exists;
-use function strrpos;
 use function strtolower;
-use function substr;
 
 /**
  * Cria itens customizados a partir do items.yml usando o Customies, e monta o resource pack
@@ -45,19 +41,8 @@ final class CustomItems extends PluginBase {
 	}
 
 	protected function onEnable(): void {
-		$conflict = $this->findConflictingCustomies();
-		if($conflict !== null) {
-			$this->getLogger()->emergency("$conflict está instalado, mas o CustomItems traz o Customies embutido. Duas cópias do Customies brigam pela palette e deixam blocos ou itens invisíveis para o cliente. Use a versão CustomItems-NoLibs junto do Customies avulso.");
-			$this->getServer()->getPluginManager()->disablePlugin($this);
-			return;
-		}
-
 		$this->saveDefaultConfig();
 		$this->saveResource("items.yml");
-
-		// Papel que era do onEnable do Customies: este listener liga o experimento data_driven_items,
-		// sem ele o cliente mostra os itens customizados como itens desconhecidos.
-		$this->getServer()->getPluginManager()->registerEvents(new CustomiesListener(), $this);
 
 		$this->registry = new ItemRegistry($this->getLogger());
 		foreach($this->loadDefinitions() as $definition){
@@ -104,34 +89,6 @@ final class CustomItems extends PluginBase {
 		$definition = ItemDefinition::parse($identifier, $data);
 		$this->registry->register($definition);
 		return $definition;
-	}
-
-	/**
-	 * Procura outra cópia ativa do Customies.
-	 *
-	 * Além do plugin avulso, varremos os plugins carregados atrás de um Customies embutido em
-	 * `libs/` — a convenção de virion do Poggit — para pegar também plugins de terceiros.
-	 */
-	private function findConflictingCustomies(): ?string {
-		$manager = $this->getServer()->getPluginManager();
-		if($manager->getPlugin("Customies") !== null) {
-			return "O plugin Customies avulso";
-		}
-
-		foreach($manager->getPlugins() as $plugin){
-			if($plugin === $this) {
-				continue;
-			}
-			$main = $plugin->getDescription()->getMain();
-			$separator = strrpos($main, "\\");
-			if($separator === false) {
-				continue;
-			}
-			if(class_exists(substr($main, 0, $separator) . "\\libs\\customiesdevs\\customies\\CustomiesListener")) {
-				return "O plugin " . $plugin->getName();
-			}
-		}
-		return null;
 	}
 
 	/**
