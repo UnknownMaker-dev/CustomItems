@@ -6,28 +6,31 @@ namespace Unknown\CustomItems\item;
 
 use pocketmine\item\ItemIdentifier;
 use pocketmine\item\ItemTypeIds;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\AllowOffHandComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\CanDestroyInCreativeComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\CooldownComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\DamageComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\DiggerComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\DisplayNameComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\DurabilityComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\EnchantableSlotComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\EnchantableValueComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\FoodComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\FuelComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\GlintComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\HandEquippedComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\HoverTextColorComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\IconComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\MaxStackSizeComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\RarityComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\ShouldDespawnComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\UseAnimationComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\UseDurationComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\WearableComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\ItemComponentsTrait;
+use customiesdevs\customies\item\component\AllowOffHandComponent;
+use customiesdevs\customies\item\component\CanDestroyInCreativeComponent;
+use customiesdevs\customies\item\component\CooldownComponent;
+use customiesdevs\customies\item\component\DamageComponent;
+use customiesdevs\customies\item\component\DiggerComponent;
+use customiesdevs\customies\item\component\DisplayNameComponent;
+use customiesdevs\customies\item\component\DurabilityComponent;
+use customiesdevs\customies\item\component\EnchantableSlotComponent;
+use customiesdevs\customies\item\component\EnchantableValueComponent;
+use customiesdevs\customies\item\component\FoodComponent;
+use customiesdevs\customies\item\component\FuelComponent;
+use customiesdevs\customies\item\component\GlintComponent;
+use customiesdevs\customies\item\component\HandEquippedComponent;
+use customiesdevs\customies\item\component\HoverTextColorComponent;
+use customiesdevs\customies\item\component\IconComponent;
+use customiesdevs\customies\item\component\MaxStackSizeComponent;
+use customiesdevs\customies\item\component\RarityComponent;
+use customiesdevs\customies\item\component\ShooterComponent;
+use customiesdevs\customies\item\component\ShouldDespawnComponent;
+use customiesdevs\customies\item\component\ThrowableComponent;
+use customiesdevs\customies\item\component\UseAnimationComponent;
+use customiesdevs\customies\item\component\UseDurationComponent;
+use customiesdevs\customies\item\component\UseModifiersComponent;
+use customiesdevs\customies\item\component\WearableComponent;
+use customiesdevs\customies\item\ItemComponentsTrait;
 
 /**
  * Liga uma {@link ItemDefinition} ao item do servidor e aos componentes enviados ao cliente.
@@ -106,8 +109,21 @@ trait CustomItemTrait {
 			}, $armor["defense"]));
 		}
 
-		if($definition->getType() === ItemDefinition::TYPE_TOOL || $definition->getType() === ItemDefinition::TYPE_ARMOR) {
+		$type = $definition->getType();
+		if($type === ItemDefinition::TYPE_TOOL || $type === ItemDefinition::TYPE_ARMOR || $type === ItemDefinition::TYPE_BOW) {
 			$this->addComponent(new DurabilityComponent($definition->getMaxDurability()));
+		}
+
+		if($type === ItemDefinition::TYPE_THROWABLE) {
+			$this->addComponent(new ThrowableComponent(true));
+		}
+
+		$bow = $definition->getBow();
+		if($bow !== null) {
+			// Sem o shooter o cliente não segura o botão de usar nem manda o "soltar" ao servidor.
+			// O use_duration enorme é o mesmo do arco vanilla: o jogador segura o quanto quiser.
+			$this->addComponent(new ShooterComponent($bow["ammo"], true, true, true, false, $bow["draw_time"], true));
+			$this->addComponent(new UseModifiersComponent(0.35, 3600.0));
 		}
 
 		$animation = $definition->getUseAnimation();
@@ -149,6 +165,16 @@ trait CustomItemTrait {
 
 	public function getAttackPoints(): int {
 		return $this->definition->getAttackDamage();
+	}
+
+	public function getCooldownTicks(): int {
+		$cooldown = $this->definition->getCooldown();
+		return $cooldown === null ? 0 : (int) ($cooldown["duration"] * 20);
+	}
+
+	/** Mesma tag dos itens vanilla da categoria: uma pérola customizada trava as pérolas comuns também. */
+	public function getCooldownTag(): ?string {
+		return $this->definition->getCooldown()["tag"] ?? null;
 	}
 
 	public function isFireProof(): bool {

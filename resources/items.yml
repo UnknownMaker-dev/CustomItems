@@ -10,7 +10,7 @@
 #  sozinho quando o servidor sobe.
 #
 #  Só "texture" é obrigatório; o resto tem padrão. O campo "type" decide o
-#  comportamento: item (padrão), food, tool ou armor.
+#  comportamento: item (padrão), food, tool, armor, throwable ou bow.
 # ============================================================================
 
 items:
@@ -35,8 +35,75 @@ items:
       always_edible: true     # dá para comer mesmo de barriga cheia
       residue: minecraft:bowl # o que sobra na mão depois de comer
       eat_ticks: 31
+      effects:                # efeitos ao comer
+        - effect: regeneration
+          duration: 10        # segundos
+          level: 2            # 1 = nível I
+        - effect: speed
+          duration: 30
+          chance: 0.5         # 50% de chance
     creative:
       category: items
+
+  # --- Poção / remédio: bebe, limpa os efeitos e aplica os próprios ---------
+  customitems:elixir_purificador:
+    name: "Elixir Purificador"
+    texture: elixir
+    type: food
+    max_stack_size: 16
+    use_animation: drink
+    food:
+      nutrition: 0
+      saturation: 0
+      always_edible: true
+      residue: minecraft:glass_bottle
+      clear_effects: true     # tira todos os efeitos, igual ao leite
+      effects:
+        - effect: resistance
+          duration: 20
+    creative:
+      category: items
+
+  # --- Arremessável ---------------------------------------------------------
+  customitems:shuriken:
+    name: "Shuriken"
+    texture: shuriken
+    type: throwable
+    max_stack_size: 16
+    projectile:
+      entity: snowball        # aparência do projétil em voo
+      force: 2.0
+      damage: 4
+      effects:
+        - effect: slowness
+          duration: 3
+    cooldown:
+      category: ender_pearl
+      duration: 0.5
+    creative:
+      category: equipment
+
+  # --- Arco -----------------------------------------------------------------
+  customitems:arco_de_rubi:
+    name: "Arco de Rubi"
+    texture: arco_rubi
+    type: bow
+    max_durability: 600
+    bow:
+      ammo: minecraft:arrow   # qualquer item, inclusive um item customizado
+      damage: 3.0             # flecha vanilla: 2.0
+      force: 3.5              # arco vanilla: 3.0
+      draw_time: 0.8          # segundos até a carga total
+      fire: 4                 # segundos pegando fogo
+      effects:
+        - effect: poison
+          duration: 5
+    enchantable:
+      slot: bow
+      value: 1
+    creative:
+      category: equipment
+      group: itemGroup.name.bow
 
   # --- Ferramenta -----------------------------------------------------------
   customitems:picareta_de_rubi:
@@ -86,9 +153,10 @@ items:
 #
 #  name                Nome exibido no inventário. Padrão: derivado do id.
 #  texture             Nome do PNG sem extensão. Obrigatório.
-#  type                item (padrão), food, tool, armor.
+#  type                item (padrão), food, tool, armor, throwable, bow.
 #
-#  max_stack_size      1 a 64. Padrão: 1 para tool/armor, 64 para o resto.
+#  max_stack_size      1 a 64. Padrão: 1 para tool/armor/bow, 16 para
+#                      throwable, 64 para o resto.
 #  max_durability      Usos até quebrar (tool/armor). Padrão: o da tool_tier.
 #  attack_damage       Dano de ataque. Padrão: o da tool_tier, se houver.
 #  efficiency          Velocidade base de mineração. Padrão: 1.0.
@@ -102,10 +170,52 @@ items:
 #  food.always_edible  Come de barriga cheia. Padrão: false.
 #  food.residue        Item que sobra ao comer. Padrão: nenhum.
 #  food.eat_ticks      Tempo de mastigada. Padrão: 31.
+#  food.effects        Efeitos ao comer (formato abaixo).
+#  food.clear_effects  Remove os efeitos que o jogador tinha antes de aplicar
+#                      os da comida. Padrão: false.
 #
 #  armor.slot          helmet, chestplate, leggings, boots.
 #  armor.defense       Pontos de proteção. Padrão: 2.
 #  armor.toughness     Tenacidade. Padrão: 0.
+#
+#  projectile.entity   Aparência em voo: snowball, egg, ender_pearl,
+#                      xp_bottle, ice_bomb, small_fireball, fireball,
+#                      dragon_fireball, wither_skull, shulker_bullet,
+#                      llama_spit, wind_charge. Padrão: snowball.
+#  projectile.force    Velocidade do arremesso. Padrão: 1.5.
+#  projectile.gravity  Queda por tick. Padrão: 0.03.
+#  projectile.damage   Dano ao acertar. Padrão: 0.
+#  projectile.fire     Segundos que o alvo fica pegando fogo. Padrão: 0.
+#  projectile.knockback  Empurrão extra no alvo. Padrão: 0.
+#  projectile.particles  Partículas com o ícone do item ao bater. Padrão: true.
+#  projectile.effects  Efeitos aplicados em quem for atingido.
+#
+#  bow.ammo            Munição. Padrão: minecraft:arrow. O jogador precisa
+#                      tê-la no inventário para puxar o arco.
+#  bow.consume_ammo    Gasta munição a cada tiro. Padrão: true. Desligado,
+#                      a flecha disparada não pode ser recolhida.
+#  bow.damage          Dano base da flecha, multiplicado pela velocidade
+#                      (como no vanilla). Padrão: 2.0.
+#  bow.force           Velocidade da flecha com carga total. Padrão: 3.0.
+#  bow.draw_time       Segundos até a carga total. Padrão: 1.0.
+#  bow.fire            Segundos que o alvo fica pegando fogo. Padrão: 0.
+#  bow.knockback       Empurrão extra, soma com o encantamento Impacto.
+#  bow.effects         Efeitos aplicados em quem a flecha acertar.
+#                      Os encantamentos de arco (Força, Impacto, Chama,
+#                      Infinidade) funcionam normalmente.
+#
+#  Efeitos (food.effects, projectile.effects, bow.effects): lista em que
+#  cada entrada é só o nome do efeito ou um mapa com:
+#    effect     Nome: speed, slowness, haste, mining_fatigue, strength,
+#               instant_health, instant_damage, jump_boost, nausea,
+#               regeneration, resistance, fire_resistance, water_breathing,
+#               invisibility, blindness, night_vision, hunger, weakness,
+#               poison, wither, health_boost, absorption, saturation,
+#               levitation, darkness...
+#    duration   Segundos. Padrão: 30.
+#    level      Nível do efeito, 1 = I. Padrão: 1.
+#    chance     De 0.0 a 1.0. Padrão: 1.0.
+#    particles  Mostra as partículas do efeito. Padrão: true.
 #
 #  digger              Velocidade prevista no cliente. Uma ferramenta ganha as
 #                      tags padrão do seu "tool"; use "digger: false" para
@@ -121,7 +231,9 @@ items:
 #
 #  cooldown.category   shield, ender_pearl, goat_horn, wind_charge,
 #                      chorus_fruit.
-#  cooldown.duration   Segundos de recarga.
+#  cooldown.duration   Segundos de recarga. Vale no cliente e no servidor, e
+#                      é compartilhada com os itens vanilla da mesma
+#                      categoria (ex.: ender_pearl trava as pérolas também).
 #
 #  enchantable.slot    all, sword, pickaxe, axe, shovel, hoe, bow, crossbow,
 #                      shears, shield, elytra, fishing_rod, helmet,
@@ -130,17 +242,17 @@ items:
 #  enchantment_tags    Tags do PocketMine que liberam o item na mesa de
 #                      encantamento: sword, pickaxe, axe, shovel, hoe, armor,
 #                      helmet, chestplate, leggings, boots, bow, crossbow,
-#                      shears, block_tools, all.
+#                      shears, block_tools, all. Padrão: bow para bow.
 #
 #  glint               Brilho de item encantado. Padrão: false.
 #  rarity              common, uncommon, rare, epic.
-#  hand_equipped       Segura como ferramenta. Padrão: true para tool.
+#  hand_equipped       Segura como ferramenta. Padrão: true para tool e bow.
 #  allow_off_hand      Pode ir na mão secundária. Padrão: false.
 #  can_destroy_in_creative  Padrão: false para sword, true para o resto.
 #  should_despawn      Some no chão depois de 5 min. Padrão: true.
 #  hover_text_color    Cor do nome, ex.: "red", "aqua", "gold".
 #  use_animation       none, eat, drink, block, bow, camera, spear, crossbow,
-#                      spyglass, brush. Padrão: eat para food.
+#                      spyglass, brush. Padrão: eat para food, bow para bow.
 #  use_duration        Ticks segurando o botão de usar.
 #
 #  creative.category   all, commands, construction, equipment, items, nature.

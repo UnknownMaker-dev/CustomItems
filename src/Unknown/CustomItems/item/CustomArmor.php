@@ -7,7 +7,7 @@ namespace Unknown\CustomItems\item;
 use pocketmine\item\Armor;
 use pocketmine\item\ItemIdentifier;
 use pocketmine\item\ItemTypeIds;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\ItemComponents;
+use customiesdevs\customies\item\ItemComponents;
 
 /**
  * Peça de armadura customizada.

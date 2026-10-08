@@ -1,18 +1,23 @@
 # CustomItems
 
 Plugin de PocketMine-MP para criar itens customizados escrevendo YAML, sem precisar de código.
-Toda a parte de rede e de tabela de itens é feita pelo [Customies](https://github.com/CustomiesDevs/Customies),
-que vem **embutido** — não é preciso instalar nada além deste plugin.
+Toda a parte de rede e de tabela de itens é feita pelo **Customies**, que precisa estar
+**instalado como plugin** em `plugins/`.
 
-> Esta é a versão **com libs**. Existe também a `CustomItems-NoLibs`, que usa o Customies
-> instalado no servidor. Use uma ou outra, nunca as duas.
+> ⚠️ **Use o fork do Altay: [altayofficial/Customies](https://github.com/altayofficial/Customies).**
+>
+> O upstream [CustomiesDevs/Customies](https://github.com/CustomiesDevs/Customies) (1.4.x) corrompe o
+> mundo nos protocolos recentes assim que algum bloco customizado é registrado — veja o README do
+> CustomBlocks para os detalhes.
 
 ## Instalação
 
-1. Coloque a pasta `CustomItems` em `plugins/`.
-2. Suba o servidor uma vez para gerar a pasta de dados do plugin.
-3. Jogue os PNGs dos ícones na subpasta `textures/`.
-4. Descreva os itens no `items.yml` e reinicie.
+1. Instale o **Customies** ([fork do Altay](https://github.com/altayofficial/Customies)) em
+   `plugins/` — sem ele o PocketMine nem carrega este plugin.
+2. Coloque a pasta `CustomItems` em `plugins/`.
+3. Suba o servidor uma vez para gerar a pasta de dados do plugin.
+4. Jogue os PNGs dos ícones na subpasta `textures/`.
+5. Descreva os itens no `items.yml` e reinicie.
 
 O PocketMine-MP 5 não carrega plugins em pasta sozinho — é preciso ter o **DevTools** instalado,
 ou empacotar o plugin em `.phar`.
@@ -28,21 +33,7 @@ Onde fica a pasta de dados depende de `plugins.legacy-data-dir` no `pocketmine.y
 > Itens customizados só podem ser registrados enquanto o servidor sobe. Qualquer mudança no
 > `items.yml` exige reiniciar — não existe reload.
 
-## Usando junto com o CustomBlocks
-
-As duas versões **com libs** não convivem: cada uma traz sua própria cópia do Customies, e duas
-cópias brigam pela palette que vai para o cliente. Se as duas estiverem instaladas, a primeira a
-ligar se recusa e o servidor não sobe.
-
-Para rodar blocos e itens no mesmo servidor, use as versões **sem libs** dos dois junto do plugin
-Customies avulso:
-
-```
-plugins/
-├── Customies/
-├── CustomBlocks-NoLibs/
-└── CustomItems-NoLibs/
-```
+Funciona junto do CustomBlocks: os dois usam o mesmo Customies instalado.
 
 ## Criando um item
 
@@ -64,8 +55,42 @@ O campo `type` decide o comportamento:
 | `food` | `Food` | Comida, com nutrição, saturação e resto |
 | `tool` | `Tool` | Ferramenta ou arma, com durabilidade e dano |
 | `armor` | `Armor` | Peça de armadura, com proteção e slot |
+| `throwable` | `ProjectileItem` | Item arremessável, com dano, fogo e efeitos no alvo |
+| `bow` | `Bow` | Arco com munição, dano, força e tempo de carga próprios |
 
 O `items.yml` que vem junto traz um exemplo de cada tipo e documenta todos os campos.
+
+## Efeitos
+
+Comida, arremessável e arco aceitam uma lista de efeitos — ao comer, ou em quem for atingido:
+
+```yaml
+    food:
+      nutrition: 4
+      effects:
+        - effect: regeneration
+          duration: 10      # segundos
+          level: 2          # 1 = nível I
+        - effect: speed     # chance de 50%
+          chance: 0.5
+        - night_vision      # só o nome: 30 s, nível I
+```
+
+Com `food.clear_effects: true` a comida remove os efeitos que o jogador tinha, como o leite, e só
+depois aplica os seus — dá para fazer poções e remédios.
+
+Os efeitos de projétil e de flecha só pegam se o dano passou: área sem PvP, plugin que cancela o
+dano ou a invencibilidade logo após um golpe também barram os efeitos e o fogo.
+
+## Projéteis
+
+O projétil do `throwable` e a flecha do `bow` não são salvos com o mundo: se o servidor fechar com
+um deles no ar, ele some. A flecha cravada no chão pode ser recolhida e devolve a munição usada,
+mesmo quando ela é um item customizado. No `throwable`, `projectile.entity` só escolhe a aparência
+em voo entre as entidades que o jogo já conhece (bola de neve, ovo, pérola, bola de fogo...).
+
+O `cooldown` vale no cliente e no servidor, e é compartilhado com os itens vanilla da mesma
+categoria: uma shuriken com `category: ender_pearl` também trava as pérolas do jogador.
 
 ## Resource pack
 
@@ -120,24 +145,6 @@ O array aceita exatamente os mesmos campos do `items.yml`. Para pegar o item dep
 $item = CustomiesItemFactory::getInstance()->get("meuplugin:espada", 1);
 ```
 
-## O Customies embutido
-
-A biblioteca fica em [`src/Unknown/CustomItems/libs/customiesdevs/customies/`](src/Unknown/CustomItems/libs/customiesdevs/customies/),
-com o namespace reescrito para `Unknown\CustomItems\libs\...` — o mesmo esquema de virion que o
-Poggit usa. É o código do Customies 1.4.0 sem alterações, menos o `Customies.php` (o entrypoint de
-plugin, que não faz sentido numa lib). O que ele fazia passou para o `onEnable` do CustomItems:
-registrar o `CustomiesListener`, que liga o experimento `data_driven_items`.
-
-O Customies é MIT; a licença original está junto em `libs/customiesdevs/customies/LICENSE`.
-
-Para atualizar a lib: copie o `src/` da versão nova por cima e rode
-
-```bash
-find src/Unknown/CustomItems/libs -name "*.php" -exec \
-  sed -i 's/\bcustomiesdevs\\customies\b/Unknown\\CustomItems\\libs\\customiesdevs\\customies/g' {} +
-rm src/Unknown/CustomItems/libs/customiesdevs/customies/Customies.php
-```
-
 ## Limites conhecidos
 
 - Os itens precisam ser registrados no `onEnable`; depois disso a tabela de itens já foi enviada.
@@ -145,3 +152,6 @@ rm src/Unknown/CustomItems/libs/customiesdevs/customies/Customies.php
 - O `digger` só muda a velocidade que o **cliente** prevê. Quem decide quando o bloco quebra é o
   servidor, pelos campos `tool`, `tool_tier` e `efficiency`.
 - O gerador de resource pack cuida de ícones; modelos 3D, sons e traduções ficam por sua conta.
+- A armadura customizada não aparece vestida no corpo do jogador: falta gerar o attachable.
+- O arco não troca de ícone enquanto é puxado, e o jogador precisa ter a munição no inventário
+  para puxar, mesmo com `consume_ammo: false` — quem decide se o arco pode ser puxado é o cliente.

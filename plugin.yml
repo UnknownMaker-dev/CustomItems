@@ -1,8 +1,10 @@
 name: CustomItems
 main: Unknown\CustomItems\CustomItems
 version: 1.0.0
-api: 5.1.3
+api: 5.44.0
 description: Criação de itens customizados por configuração, usando o Customies.
+depend:
+  - Customies
 authors:
   - UnknownMaker-dev
 commands:

@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Unknown\CustomItems\item;
 
 use pocketmine\block\BlockToolType;
+use pocketmine\entity\effect\StringToEffectParser;
 use pocketmine\inventory\ArmorInventory;
 use pocketmine\item\ArmorTypeInfo;
 use pocketmine\item\ToolTier;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\CooldownComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\EnchantableSlotComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\RarityComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\component\UseAnimationComponent;
-use Unknown\CustomItems\libs\customiesdevs\customies\item\CreativeInventoryInfo;
+use customiesdevs\customies\item\component\CooldownComponent;
+use customiesdevs\customies\item\component\EnchantableSlotComponent;
+use customiesdevs\customies\item\component\RarityComponent;
+use customiesdevs\customies\item\component\UseAnimationComponent;
+use customiesdevs\customies\item\CreativeInventoryInfo;
+use pocketmine\network\mcpe\protocol\types\entity\EntityIds;
 use function array_is_list;
 use function array_key_exists;
 use function array_keys;
@@ -27,6 +29,7 @@ use function json_encode;
 use function max;
 use function min;
 use function preg_match;
+use function str_contains;
 use function str_replace;
 use function str_starts_with;
 use function strtolower;
@@ -36,6 +39,8 @@ use const JSON_PRESERVE_ZERO_FRACTION;
 use const JSON_THROW_ON_ERROR;
 
 /**
+ * @phpstan-type EffectData array{effect: string, duration: int, amplifier: int, chance: float, particles: bool}
+ *
  * Representação imutável de um item customizado descrito no items.yml.
  *
  * Assim como no CustomBlocks, os dados ficam num array puro de escalares — facilita validar de uma
@@ -47,12 +52,35 @@ final class ItemDefinition {
 	public const TYPE_FOOD = "food";
 	public const TYPE_TOOL = "tool";
 	public const TYPE_ARMOR = "armor";
+	public const TYPE_THROWABLE = "throwable";
+	public const TYPE_BOW = "bow";
 
 	private const TYPES = [
 		self::TYPE_ITEM => self::TYPE_ITEM,
 		self::TYPE_FOOD => self::TYPE_FOOD,
 		self::TYPE_TOOL => self::TYPE_TOOL,
 		self::TYPE_ARMOR => self::TYPE_ARMOR,
+		self::TYPE_THROWABLE => self::TYPE_THROWABLE,
+		self::TYPE_BOW => self::TYPE_BOW,
+	];
+
+	/**
+	 * Entidades vanilla que o cliente sabe desenhar sozinho. O projétil do item arremessável usa uma
+	 * delas só como aparência; o comportamento é todo do servidor.
+	 */
+	private const PROJECTILE_ENTITIES = [
+		"snowball" => EntityIds::SNOWBALL,
+		"egg" => EntityIds::EGG,
+		"ender_pearl" => EntityIds::ENDER_PEARL,
+		"xp_bottle" => EntityIds::XP_BOTTLE,
+		"ice_bomb" => EntityIds::ICE_BOMB,
+		"small_fireball" => EntityIds::SMALL_FIREBALL,
+		"fireball" => EntityIds::FIREBALL,
+		"dragon_fireball" => EntityIds::DRAGON_FIREBALL,
+		"wither_skull" => EntityIds::WITHER_SKULL,
+		"shulker_bullet" => EntityIds::SHULKER_BULLET,
+		"llama_spit" => EntityIds::LLAMA_SPIT,
+		"wind_charge" => EntityIds::WIND_CHARGE_PROJECTILE,
 	];
 
 	private const TOOL_TYPES = [
@@ -198,7 +226,14 @@ final class ItemDefinition {
 			$defaultAttack = $tier->getBaseAttackPoints();
 		}
 
-		$stackable = $type === self::TYPE_TOOL || $type === self::TYPE_ARMOR ? 1 : 64;
+		$stackable = match ($type) {
+			self::TYPE_TOOL, self::TYPE_ARMOR, self::TYPE_BOW => 1,
+			self::TYPE_THROWABLE => 16,
+			default => 64,
+		};
+		if($type === self::TYPE_BOW && $tierName === "") {
+			$defaultDurability = 385;
+		}
 		$maxStackSize = min(64, max(1, self::readInt($identifier, $raw, "max_stack_size", $stackable)));
 
 		// --- comida ---------------------------------------------------------
@@ -212,7 +247,42 @@ final class ItemDefinition {
 			"always_edible" => self::readBool($identifier, $foodRaw, "always_edible", false),
 			"residue" => self::readString($identifier, $foodRaw, "residue", ""),
 			"eat_ticks" => max(1, self::readInt($identifier, $foodRaw, "eat_ticks", 31)),
+			"effects" => self::readEffects($identifier, $foodRaw, "food.effects"),
+			"clear_effects" => self::readBool($identifier, $foodRaw, "clear_effects", false),
 		];
+
+		// --- arremessável ---------------------------------------------------
+		$projectileRaw = is_array($raw["projectile"] ?? null) ? $raw["projectile"] : [];
+		$projectile = $type !== self::TYPE_THROWABLE ? null : [
+			"entity" => self::readEnum($identifier, $projectileRaw, "entity", self::PROJECTILE_ENTITIES, "snowball"),
+			"force" => max(0.1, self::readFloat($identifier, $projectileRaw, "force", 1.5)),
+			"gravity" => max(0.0, self::readFloat($identifier, $projectileRaw, "gravity", 0.03)),
+			"damage" => max(0.0, self::readFloat($identifier, $projectileRaw, "damage", 0.0)),
+			"fire" => max(0, self::readInt($identifier, $projectileRaw, "fire", 0)),
+			"knockback" => max(0.0, self::readFloat($identifier, $projectileRaw, "knockback", 0.0)),
+			"particles" => self::readBool($identifier, $projectileRaw, "particles", true),
+			"effects" => self::readEffects($identifier, $projectileRaw, "projectile.effects"),
+		];
+
+		// --- arco -----------------------------------------------------------
+		$bowRaw = is_array($raw["bow"] ?? null) ? $raw["bow"] : [];
+		$bow = null;
+		if($type === self::TYPE_BOW) {
+			$ammo = strtolower(self::readString($identifier, $bowRaw, "ammo", "minecraft:arrow"));
+			if(!str_contains($ammo, ":")) {
+				$ammo = "minecraft:$ammo";
+			}
+			$bow = [
+				"ammo" => $ammo,
+				"consume_ammo" => self::readBool($identifier, $bowRaw, "consume_ammo", true),
+				"damage" => max(0.0, self::readFloat($identifier, $bowRaw, "damage", 2.0)),
+				"force" => max(0.1, self::readFloat($identifier, $bowRaw, "force", 3.0)),
+				"draw_time" => max(0.05, self::readFloat($identifier, $bowRaw, "draw_time", 1.0)),
+				"fire" => max(0, self::readInt($identifier, $bowRaw, "fire", 0)),
+				"knockback" => max(0.0, self::readFloat($identifier, $bowRaw, "knockback", 0.0)),
+				"effects" => self::readEffects($identifier, $bowRaw, "bow.effects"),
+			];
+		}
 
 		// --- armadura -------------------------------------------------------
 		$armorRaw = is_array($raw["armor"] ?? null) ? $raw["armor"] : [];
@@ -232,6 +302,8 @@ final class ItemDefinition {
 		$cooldownRaw = is_array($raw["cooldown"] ?? null) ? $raw["cooldown"] : [];
 		$cooldown = $cooldownRaw === [] ? null : [
 			"category" => self::readEnum($identifier, $cooldownRaw, "category", self::COOLDOWN_CATEGORIES, "ender_pearl"),
+			// O servidor também trava o uso; a tag é o nome curto, o mesmo que os itens vanilla usam.
+			"tag" => strtolower(self::readString($identifier, $cooldownRaw, "category", "ender_pearl")),
 			"duration" => max(0.0, self::readFloat($identifier, $cooldownRaw, "duration", 1.0)),
 		];
 
@@ -261,21 +333,29 @@ final class ItemDefinition {
 
 			"food" => $food,
 			"armor" => $armor,
+			"projectile" => $projectile,
+			"bow" => $bow,
 			"digger" => $digger,
 			"cooldown" => $cooldown,
 			"enchantable" => $enchantable,
-			"enchantment_tags" => self::readTags($identifier, $raw, "enchantment_tags"),
+			"enchantment_tags" => array_key_exists("enchantment_tags", $raw) || $type !== self::TYPE_BOW
+				? self::readTags($identifier, $raw, "enchantment_tags")
+				: ["bow"],
 
 			"glint" => self::readBool($identifier, $raw, "glint", false),
 			"rarity" => array_key_exists("rarity", $raw) ? self::readEnum($identifier, $raw, "rarity", self::RARITIES, "common") : null,
-			"hand_equipped" => self::readBool($identifier, $raw, "hand_equipped", $type === self::TYPE_TOOL),
+			"hand_equipped" => self::readBool($identifier, $raw, "hand_equipped", $type === self::TYPE_TOOL || $type === self::TYPE_BOW),
 			"allow_off_hand" => self::readBool($identifier, $raw, "allow_off_hand", false),
 			"can_destroy_in_creative" => self::readBool($identifier, $raw, "can_destroy_in_creative", $toolType !== BlockToolType::SWORD),
 			"should_despawn" => self::readBool($identifier, $raw, "should_despawn", true),
 			"hover_text_color" => self::readString($identifier, $raw, "hover_text_color", ""),
 			"use_animation" => array_key_exists("use_animation", $raw)
 				? self::readEnum($identifier, $raw, "use_animation", self::USE_ANIMATIONS, "none")
-				: ($type === self::TYPE_FOOD ? UseAnimationComponent::ANIMATION_EAT : null),
+				: match ($type) {
+					self::TYPE_FOOD => UseAnimationComponent::ANIMATION_EAT,
+					self::TYPE_BOW => UseAnimationComponent::ANIMATION_BOW,
+					default => null,
+				},
 			"use_duration" => max(0, self::readInt($identifier, $raw, "use_duration", $food["eat_ticks"] ?? 0)),
 
 			"creative_category" => self::readEnum($identifier, $creativeRaw, "category", self::CREATIVE_CATEGORIES, "items"),
@@ -345,7 +425,7 @@ final class ItemDefinition {
 		return $this->data["fire_proof"];
 	}
 
-	/** @return null|array{nutrition: int, saturation: float, always_edible: bool, residue: string, eat_ticks: int} */
+	/** @return null|array{nutrition: int, saturation: float, always_edible: bool, residue: string, eat_ticks: int, effects: list<EffectData>, clear_effects: bool} */
 	public function getFood(): ?array {
 		return $this->data["food"];
 	}
@@ -355,12 +435,22 @@ final class ItemDefinition {
 		return $this->data["armor"];
 	}
 
+	/** @return null|array{entity: string, force: float, gravity: float, damage: float, fire: int, knockback: float, particles: bool, effects: list<EffectData>} */
+	public function getProjectile(): ?array {
+		return $this->data["projectile"];
+	}
+
+	/** @return null|array{ammo: string, consume_ammo: bool, damage: float, force: float, draw_time: float, fire: int, knockback: float, effects: list<EffectData>} */
+	public function getBow(): ?array {
+		return $this->data["bow"];
+	}
+
 	/** @return null|array{use_efficiency: bool, destroy_speeds: array<int, array{speed: int, tags: string[]}>} */
 	public function getDigger(): ?array {
 		return $this->data["digger"];
 	}
 
-	/** @return null|array{category: string, duration: float} */
+	/** @return null|array{category: string, tag: string, duration: float} */
 	public function getCooldown(): ?array {
 		return $this->data["cooldown"];
 	}
@@ -474,6 +564,42 @@ final class ItemDefinition {
 			"use_efficiency" => self::readBool($identifier, $diggerRaw, "use_efficiency", true),
 			"destroy_speeds" => $parsed,
 		];
+	}
+
+	/**
+	 * Lê uma lista de efeitos. Cada entrada pode ser só o nome ("speed") ou um mapa com
+	 * effect, duration (segundos), level (1 = nível I), chance (0.0 a 1.0) e particles.
+	 *
+	 * @param mixed[] $raw
+	 * @return list<EffectData>
+	 */
+	private static function readEffects(string $identifier, array $raw, string $path): array {
+		$list = $raw["effects"] ?? [];
+		if(!is_array($list) || !array_is_list($list)) {
+			throw new ItemDefinitionException($identifier, "$path precisa ser uma lista");
+		}
+
+		$effects = [];
+		foreach($list as $index => $entry){
+			if(is_string($entry)) {
+				$entry = ["effect" => $entry];
+			}
+			if(!is_array($entry)) {
+				throw new ItemDefinitionException($identifier, "{$path}[$index] precisa ser o nome do efeito ou um mapa com 'effect'");
+			}
+			$name = strtolower(self::readString($identifier, $entry, "effect", ""));
+			if($name === "" || StringToEffectParser::getInstance()->parse($name) === null) {
+				throw new ItemDefinitionException($identifier, "{$path}[$index]: efeito '$name' não existe (ex.: speed, regeneration, strength, poison, slowness)");
+			}
+			$effects[] = [
+				"effect" => $name,
+				"duration" => max(1, (int) (self::readFloat($identifier, $entry, "duration", 30.0) * 20)),
+				"amplifier" => min(255, max(0, self::readInt($identifier, $entry, "level", 1) - 1)),
+				"chance" => min(1.0, max(0.0, self::readFloat($identifier, $entry, "chance", 1.0))),
+				"particles" => self::readBool($identifier, $entry, "particles", true),
+			];
+		}
+		return $effects;
 	}
 
 	/**
