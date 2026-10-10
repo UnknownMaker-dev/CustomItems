@@ -97,7 +97,8 @@ final class CustomProjectile extends Throwable implements NeverSavedWithChunkEnt
 			), $this->attributeMap->getAll()),
 			$this->getAllNetworkData(),
 			new PropertySyncData([], []),
-			$this->getNetworkLinks()
+			// Projétil não leva passageiro nem monta em nada; o getNetworkLinks() do Entity é privado.
+			[]
 		));
 	}
 }
